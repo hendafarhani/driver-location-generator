@@ -2,10 +2,10 @@ package com.microgo.driver_location_generator.service;
 
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
-import com.microgo.driver_location_generator.domain.DriverStatus;
+import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
-import com.microgo.driver_location_generator.domain.LondonScenario;
-import com.microgo.driver_location_generator.domain.LondonZone;
+import com.microgo.driver_location_generator.enums.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonZone;
 import com.microgo.driver_location_generator.service.serviceimpl.LondonDistanceMatrixImpl;
 import com.microgo.driver_location_generator.service.serviceimpl.LondonTrafficModelImpl;
 import com.microgo.driver_location_generator.service.serviceimpl.LondonZoneServiceImpl;

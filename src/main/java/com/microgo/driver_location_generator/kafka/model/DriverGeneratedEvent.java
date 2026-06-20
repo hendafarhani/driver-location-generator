@@ -1,6 +1,6 @@
 package com.microgo.driver_location_generator.kafka.model;
 
-import com.microgo.driver_location_generator.domain.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonScenario;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

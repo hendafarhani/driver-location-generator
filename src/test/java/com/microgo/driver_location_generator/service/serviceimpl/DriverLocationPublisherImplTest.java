@@ -1,16 +1,17 @@
 package com.microgo.driver_location_generator.service.serviceimpl;
 
 import com.microgo.driver_location_generator.domain.DriverGeoState;
-import com.microgo.driver_location_generator.domain.DriverStatus;
+import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
-import com.microgo.driver_location_generator.domain.LondonScenario;
-import com.microgo.driver_location_generator.domain.LondonZone;
+import com.microgo.driver_location_generator.enums.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonZone;
 import com.microgo.driver_location_generator.kafka.configuration.KafkaTopicProperties;
 import com.microgo.driver_location_generator.kafka.model.DriverBecameAvailableEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverEnteredZoneEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverLocationUpdatedEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverReachedDestinationEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverReachedPickupEvent;
+import com.microgo.driver_location_generator.kafka.publisher.impl.DriverLocationPublisherImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

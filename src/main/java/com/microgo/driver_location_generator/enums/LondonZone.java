@@ -1,4 +1,4 @@
-package com.microgo.driver_location_generator.domain;
+package com.microgo.driver_location_generator.enums;
 
 public enum LondonZone {
     WEMBLEY_EVENT_ZONE,

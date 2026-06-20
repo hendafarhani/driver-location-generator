@@ -1,4 +1,4 @@
-package com.microgo.driver_location_generator.service;
+package com.microgo.driver_location_generator.kafka.publisher;
 
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 

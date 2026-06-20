@@ -2,7 +2,7 @@ package com.microgo.driver_location_generator.service.strategy.strategyimpl;
 
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
-import com.microgo.driver_location_generator.domain.DriverStatus;
+import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
 import com.microgo.driver_location_generator.mapper.DriverMovementStrategyMapper;
 import com.microgo.driver_location_generator.service.LondonDistanceMatrix;

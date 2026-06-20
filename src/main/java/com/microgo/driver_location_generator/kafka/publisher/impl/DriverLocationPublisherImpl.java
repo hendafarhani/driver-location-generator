@@ -1,9 +1,9 @@
-package com.microgo.driver_location_generator.service.serviceimpl;
+package com.microgo.driver_location_generator.kafka.publisher.impl;
 
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.kafka.configuration.KafkaTopicProperties;
+import com.microgo.driver_location_generator.kafka.publisher.DriverLocationPublisher;
 import com.microgo.driver_location_generator.mapper.DriverLocationEventMapper;
-import com.microgo.driver_location_generator.service.DriverLocationPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;

@@ -1,5 +1,8 @@
 package com.microgo.driver_location_generator.domain;
 
+import com.microgo.driver_location_generator.enums.DriverStatus;
+import com.microgo.driver_location_generator.enums.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonZone;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

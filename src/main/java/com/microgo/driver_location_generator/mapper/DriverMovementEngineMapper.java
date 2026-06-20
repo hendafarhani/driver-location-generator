@@ -1,10 +1,11 @@
 package com.microgo.driver_location_generator.mapper;
 
 import com.microgo.driver_location_generator.domain.DriverGeoState;
-import com.microgo.driver_location_generator.domain.DriverStatus;
+import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
-import com.microgo.driver_location_generator.domain.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonScenario;
 import com.microgo.driver_location_generator.entity.DriverProfileEntity;
+import com.microgo.driver_location_generator.enums.LondonZone;
 import com.microgo.driver_location_generator.kafka.model.MoveToPickupCommand;
 import com.microgo.driver_location_generator.kafka.model.RepositionDriverCommand;
 import com.microgo.driver_location_generator.kafka.model.StartTripCommand;
@@ -21,7 +22,7 @@ public class DriverMovementEngineMapper {
             LondonScenario scenario,
             double idleStepMeters,
             GeoPoint initialPosition,
-            com.microgo.driver_location_generator.domain.LondonZone currentZone,
+            LondonZone currentZone,
             Instant updatedAt) {
         return DriverGeoState.builder()
                 .driverId(profile.getDriverIdentifier())
@@ -91,7 +92,7 @@ public class DriverMovementEngineMapper {
             DriverGeoState rawState,
             long nextTickSequence,
             Instant updatedAt,
-            com.microgo.driver_location_generator.domain.LondonZone currentZone) {
+            LondonZone currentZone) {
         return rawState.toBuilder()
                 .tickSequence(nextTickSequence)
                 .updatedAt(updatedAt)
@@ -120,7 +121,7 @@ public class DriverMovementEngineMapper {
     public DriverGeoState toMutatedDriverState(
             DriverGeoState state,
             Instant updatedAt,
-            com.microgo.driver_location_generator.domain.LondonZone currentZone,
+            LondonZone currentZone,
             double plannedStepMeters) {
         return state.toBuilder()
                 .updatedAt(updatedAt)

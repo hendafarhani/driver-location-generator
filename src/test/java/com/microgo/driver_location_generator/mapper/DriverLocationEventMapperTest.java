@@ -1,10 +1,10 @@
 package com.microgo.driver_location_generator.mapper;
 
 import com.microgo.driver_location_generator.domain.DriverGeoState;
-import com.microgo.driver_location_generator.domain.DriverStatus;
+import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
-import com.microgo.driver_location_generator.domain.LondonScenario;
-import com.microgo.driver_location_generator.domain.LondonZone;
+import com.microgo.driver_location_generator.enums.LondonScenario;
+import com.microgo.driver_location_generator.enums.LondonZone;
 import com.microgo.driver_location_generator.kafka.model.DriverLocationUpdatedEvent;
 import org.junit.jupiter.api.Test;
 

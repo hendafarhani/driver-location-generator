@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,12 +25,24 @@ public class RedisGeoDriverStateStore {
     private final DriverLocationGeneratorProperties properties;
 
     public void save(DriverGeoState state) {
+        Point position = convertToPoint(state.getCurrentPosition());
         stringRedisTemplate.opsForGeo().add(
                 properties.getRedis().getGeoKey(),
-                new Point(state.getCurrentPosition().getLongitude(), state.getCurrentPosition().getLatitude()),
+                position,
                 state.getDriverId());
-        stringRedisTemplate.opsForValue().set(stateKey(state.getDriverId()), serialize(state));
-        stringRedisTemplate.opsForValue().set(zoneKey(state.getDriverId()), state.getCurrentZone().name());
+        persistStateData(state);
+    }
+
+    private Point convertToPoint(GeoPoint geoPoint) {
+        return new Point(geoPoint.getLongitude(), geoPoint.getLatitude());
+    }
+
+    private void persistStateData(DriverGeoState state) {
+        String driverId = state.getDriverId();
+        stringRedisTemplate.opsForValue().multiSet(Map.of(
+                stateKey(driverId), serialize(state),
+                zoneKey(driverId), state.getCurrentZone().name()
+        ));
     }
 
     public Optional<DriverGeoState> findByDriverId(String driverId) {

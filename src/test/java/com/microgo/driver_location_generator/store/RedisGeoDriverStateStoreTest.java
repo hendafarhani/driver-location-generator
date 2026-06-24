@@ -52,10 +52,9 @@ class RedisGeoDriverStateStoreTest {
         store.save(state);
 
         verify(geoOperations).add("vehicle_location", new Point(-0.1278, 51.5074), "driver-1");
-        verify(valueOperations).set(
-                "driver:geo-state:driver-1",
-                objectMapper.writeValueAsString(state));
-        verify(valueOperations).set("driver:zone:driver-1", "CENTRAL_LONDON");
+        verify(valueOperations).multiSet(java.util.Map.of(
+                "driver:geo-state:driver-1", objectMapper.writeValueAsString(state),
+                "driver:zone:driver-1", "CENTRAL_LONDON"));
     }
 
     @Test

@@ -1,9 +1,12 @@
 package com.microgo.driver_location_generator.kafka.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microgo.driver_location_generator.kafka.model.DriverAcceptedEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverGeneratedEvent;
+import com.microgo.driver_location_generator.kafka.model.DriverRefusedEvent;
 import com.microgo.driver_location_generator.kafka.model.MoveToPickupCommand;
 import com.microgo.driver_location_generator.kafka.model.RepositionDriverCommand;
+import com.microgo.driver_location_generator.kafka.model.RideCancelledEvent;
 import com.microgo.driver_location_generator.kafka.model.StartTripCommand;
 import com.microgo.driver_location_generator.kafka.model.StopDriverCommand;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -100,6 +103,51 @@ public class KafkaListenerConfiguration {
     public ConsumerFactory<String, StopDriverCommand> stopDriverCommandConsumerFactory(
             @Value("${kafka.bootstrap-servers}") String bootstrapServers) {
         return consumerFactory(bootstrapServers, StopDriverCommand.class);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, DriverAcceptedEvent> driverAcceptedListenerFactory(
+            ConsumerFactory<String, DriverAcceptedEvent> driverAcceptedConsumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, DriverAcceptedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(driverAcceptedConsumerFactory);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, DriverAcceptedEvent> driverAcceptedConsumerFactory(
+            @Value("${kafka.bootstrap-servers}") String bootstrapServers) {
+        return consumerFactory(bootstrapServers, DriverAcceptedEvent.class);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, DriverRefusedEvent> driverRefusedListenerFactory(
+            ConsumerFactory<String, DriverRefusedEvent> driverRefusedConsumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, DriverRefusedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(driverRefusedConsumerFactory);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, DriverRefusedEvent> driverRefusedConsumerFactory(
+            @Value("${kafka.bootstrap-servers}") String bootstrapServers) {
+        return consumerFactory(bootstrapServers, DriverRefusedEvent.class);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, RideCancelledEvent> rideCancelledListenerFactory(
+            ConsumerFactory<String, RideCancelledEvent> rideCancelledConsumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, RideCancelledEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(rideCancelledConsumerFactory);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, RideCancelledEvent> rideCancelledConsumerFactory(
+            @Value("${kafka.bootstrap-servers}") String bootstrapServers) {
+        return consumerFactory(bootstrapServers, RideCancelledEvent.class);
     }
 
     private <T> ConsumerFactory<String, T> consumerFactory(String bootstrapServers, Class<T> payloadType) {

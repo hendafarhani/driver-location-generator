@@ -19,6 +19,7 @@ public class DriverLocationEventMapper {
                 .driverIdentifier(state.getDriverId())
                 .providerIdentifier(state.getDriverId())
                 .driverDisplayId(state.getDriverDisplayId())
+                .activeRideId(state.getActiveRideId())
                 .scenario(state.getScenario())
                 .status(state.getStatus())
                 .zone(state.getCurrentZone())

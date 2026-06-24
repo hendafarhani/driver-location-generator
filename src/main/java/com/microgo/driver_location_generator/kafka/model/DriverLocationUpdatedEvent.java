@@ -19,6 +19,7 @@ public class DriverLocationUpdatedEvent {
     private String driverIdentifier;
     private String providerIdentifier;
     private String driverDisplayId;
+    private String activeRideId;
     private LondonScenario scenario;
     private DriverStatus status;
     private LondonZone zone;

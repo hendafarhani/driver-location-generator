@@ -75,6 +75,17 @@ public class DriverMovementEngineMapper {
                 .build();
     }
 
+    public DriverGeoState toFreedDriverState(DriverGeoState state) {
+        return state.toBuilder()
+                .status(DriverStatus.IDLE)
+                .available(true)
+                .targetPosition(null)
+                .pickupPosition(null)
+                .dropoffPosition(null)
+                .activeRideId(null)
+                .build();
+    }
+
     public MovementUpdate toUnchangedMovementUpdate(DriverGeoState state) {
         return MovementUpdate.builder()
                 .newState(state)

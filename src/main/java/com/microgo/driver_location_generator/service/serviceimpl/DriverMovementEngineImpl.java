@@ -6,9 +6,12 @@ import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
 import com.microgo.driver_location_generator.enums.LondonScenario;
+import com.microgo.driver_location_generator.kafka.model.DriverAcceptedEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverGeneratedEvent;
+import com.microgo.driver_location_generator.kafka.model.DriverRefusedEvent;
 import com.microgo.driver_location_generator.kafka.model.MoveToPickupCommand;
 import com.microgo.driver_location_generator.kafka.model.RepositionDriverCommand;
+import com.microgo.driver_location_generator.kafka.model.RideCancelledEvent;
 import com.microgo.driver_location_generator.kafka.model.StartTripCommand;
 import com.microgo.driver_location_generator.kafka.model.StopDriverCommand;
 import com.microgo.driver_location_generator.mapper.DriverMovementEngineMapper;
@@ -21,12 +24,15 @@ import com.microgo.driver_location_generator.service.MovementStrategyResolver;
 import com.microgo.driver_location_generator.service.MovementUpdate;
 import com.microgo.driver_location_generator.store.RedisGeoDriverStateStore;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.function.UnaryOperator;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DriverMovementEngineImpl implements DriverMovementEngine {
@@ -73,8 +79,18 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
 
     @Override
     public void startTrip(StartTripCommand command) {
-        mutate(command.getDriverId(), state -> DriverMovementEngineMapper.toTripCommandState(
-                state,
+        DriverGeoState state = stateStore.findByDriverId(command.getDriverId()).orElse(null);
+        if (state == null) {
+            log.debug("Ignoring start-trip for unknown driver {}", command.getDriverId());
+            return;
+        }
+        if (isServingRide(state) && isDifferentRide(state, command)) {
+            log.debug("Ignoring start-trip {} for driver {} already serving ride {}",
+                    command.getRideId(), command.getDriverId(), state.getActiveRideId());
+            return;
+        }
+        mutate(command.getDriverId(), current -> DriverMovementEngineMapper.toTripCommandState(
+                current,
                 command,
                 point(command.getDestinationLatitude(), command.getDestinationLongitude())));
     }
@@ -82,6 +98,42 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
     @Override
     public void stopDriver(StopDriverCommand command) {
         mutate(command.getDriverId(), DriverMovementEngineMapper::toStoppedDriverState);
+    }
+
+    @Override
+    public void acceptRide(DriverAcceptedEvent event) {
+        stateStore.findByDriverId(event.getDriverId()).ifPresentOrElse(state -> {
+            if (isServingRide(state)) {
+                log.debug("Ignoring acceptance of ride {} for driver {} already serving ride {}",
+                        event.getRideId(), event.getDriverId(), state.getActiveRideId());
+                return;
+            }
+            moveToPickup(MoveToPickupCommand.builder()
+                    .driverId(event.getDriverId())
+                    .rideId(event.getRideId())
+                    .pickupLatitude(event.getPickupLatitude())
+                    .pickupLongitude(event.getPickupLongitude())
+                    .build());
+        }, () -> log.debug("Ignoring acceptance for unknown driver {}", event.getDriverId()));
+    }
+
+    @Override
+    public void declineRide(DriverRefusedEvent event) {
+        // A refused offer never committed the driver, so there is nothing to free; it stays available.
+        log.debug("Driver {} refused ride {}; remaining available", event.getDriverId(), event.getRideId());
+    }
+
+    @Override
+    public void cancelRide(RideCancelledEvent event) {
+        stateStore.findByDriverId(event.getDriverId()).ifPresentOrElse(state -> {
+            if (!isServingThisRide(state, event.getRideId())) {
+                log.debug("Ignoring cancellation of ride {} for driver {} (active ride is {})",
+                        event.getRideId(), event.getDriverId(), state.getActiveRideId());
+                return;
+            }
+            mutate(event.getDriverId(), DriverMovementEngineMapper::toFreedDriverState);
+            publisher.publishBecameAvailable(event.getDriverId());
+        }, () -> log.debug("Ignoring cancellation for unknown driver {}", event.getDriverId()));
     }
 
     @Override
@@ -134,6 +186,18 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
         return adjustedStep == 0.0d;
     }
 
+    private static boolean isServingRide(DriverGeoState state) {
+        return state.getActiveRideId() != null;
+    }
+
+    private static boolean isDifferentRide(DriverGeoState state, StartTripCommand command) {
+        return !Objects.equals(state.getActiveRideId(), command.getRideId());
+    }
+
+    private static boolean isServingThisRide(DriverGeoState state, String rideId) {
+        return state.getActiveRideId() != null && Objects.equals(state.getActiveRideId(), rideId);
+    }
+
     private static boolean isOffline(DriverGeoState existingState) {
         return existingState.getStatus() == DriverStatus.OFFLINE;
     }
@@ -145,15 +209,31 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
     private void persistAndPublish(MovementUpdate update) {
         DriverGeoState state = update.getNewState();
         persistAndPublishLocation(state);
+        publishZoneChangeEvent(update, state);
+        publishPickupReachedEvent(update, state);
+        publishDestinationReachedEvent(update, state);
+        publishAvailabilityChangeEvent(update, state);
+    }
+
+    private void publishZoneChangeEvent(MovementUpdate update, DriverGeoState state) {
         if (update.isZoneChanged()) {
             publisher.publishZoneEntered(state);
         }
+    }
+
+    private void publishPickupReachedEvent(MovementUpdate update, DriverGeoState state) {
         if (update.isReachedPickup()) {
             publisher.publishReachedPickup(state.getDriverId(), update.getRideId());
         }
+    }
+
+    private void publishDestinationReachedEvent(MovementUpdate update, DriverGeoState state) {
         if (update.isReachedDestination()) {
             publisher.publishReachedDestination(state.getDriverId(), update.getRideId());
         }
+    }
+
+    private void publishAvailabilityChangeEvent(MovementUpdate update, DriverGeoState state) {
         if (update.isBecameAvailable()) {
             publisher.publishBecameAvailable(state.getDriverId());
         }
@@ -190,12 +270,16 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
     }
 
     private DriverLocationGeneratorProperties.ScenarioConfig scenarioConfig(LondonScenario scenario) {
-        if (scenario == null) {
+        if (isNoScenario(scenario)) {
             return null;
         }
         DriverLocationGeneratorProperties.ScenarioKey scenarioKey =
                 DriverLocationGeneratorProperties.ScenarioKey.valueOf(scenario.name());
         return properties.getScenarios().get(scenarioKey);
+    }
+
+    private static boolean isNoScenario(LondonScenario scenario) {
+        return scenario == null;
     }
 
 

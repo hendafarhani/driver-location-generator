@@ -7,9 +7,12 @@ import com.microgo.driver_location_generator.domain.GeoPoint;
 import com.microgo.driver_location_generator.enums.LondonScenario;
 import com.microgo.driver_location_generator.enums.LondonZone;
 import com.microgo.driver_location_generator.entity.DriverProfileEntity;
+import com.microgo.driver_location_generator.kafka.model.DriverAcceptedEvent;
 import com.microgo.driver_location_generator.kafka.model.DriverGeneratedEvent;
+import com.microgo.driver_location_generator.kafka.model.DriverRefusedEvent;
 import com.microgo.driver_location_generator.kafka.model.MoveToPickupCommand;
 import com.microgo.driver_location_generator.kafka.model.RepositionDriverCommand;
+import com.microgo.driver_location_generator.kafka.model.RideCancelledEvent;
 import com.microgo.driver_location_generator.kafka.model.StartTripCommand;
 import com.microgo.driver_location_generator.kafka.model.StopDriverCommand;
 import com.microgo.driver_location_generator.kafka.publisher.DriverLocationPublisher;
@@ -212,6 +215,151 @@ class DriverMovementEngineTest {
         GeoPoint position = stateStore.required(minimumHashDriverId).getCurrentPosition();
         assertThat(position.getLatitude()).isBetween(51.52, 51.59);
         assertThat(position.getLongitude()).isBetween(-0.33, -0.23);
+    }
+
+    @Test
+    void acceptRideSendsDriverToPickup() {
+        stateStore.save(idleState());
+
+        engine.acceptRide(DriverAcceptedEvent.builder()
+                .driverId("driver-1")
+                .rideId("ride-1")
+                .pickupLatitude(51.52)
+                .pickupLongitude(-0.13)
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.MOVING_TO_PICKUP);
+        assertThat(state.getActiveRideId()).isEqualTo("ride-1");
+        assertThat(state.getPickupPosition()).isEqualTo(point(51.52, -0.13));
+        assertThat(state.isAvailable()).isFalse();
+    }
+
+    @Test
+    void acceptRideIgnoredWhenDriverAlreadyServingRide() {
+        stateStore.save(idleState().toBuilder()
+                .status(DriverStatus.ON_TRIP)
+                .available(false)
+                .activeRideId("ride-existing")
+                .build());
+
+        engine.acceptRide(DriverAcceptedEvent.builder()
+                .driverId("driver-1")
+                .rideId("ride-new")
+                .pickupLatitude(51.52)
+                .pickupLongitude(-0.13)
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.ON_TRIP);
+        assertThat(state.getActiveRideId()).isEqualTo("ride-existing");
+    }
+
+    @Test
+    void cancelRideFreesAssignedDriver() {
+        stateStore.save(idleState().toBuilder()
+                .status(DriverStatus.MOVING_TO_PICKUP)
+                .available(false)
+                .activeRideId("ride-1")
+                .pickupPosition(point(51.52, -0.13))
+                .targetPosition(point(51.52, -0.13))
+                .build());
+
+        engine.cancelRide(RideCancelledEvent.builder()
+                .driverId("driver-1")
+                .rideId("ride-1")
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.IDLE);
+        assertThat(state.isAvailable()).isTrue();
+        assertThat(state.getActiveRideId()).isNull();
+        assertThat(state.getPickupPosition()).isNull();
+        assertThat(state.getDropoffPosition()).isNull();
+        assertThat(state.getTargetPosition()).isNull();
+        assertThat(publisher.availableDrivers).containsExactly("driver-1");
+    }
+
+    @Test
+    void cancelRideIgnoredWhenRideDoesNotMatchActiveRide() {
+        stateStore.save(idleState().toBuilder()
+                .status(DriverStatus.ON_TRIP)
+                .available(false)
+                .activeRideId("ride-1")
+                .build());
+
+        engine.cancelRide(RideCancelledEvent.builder()
+                .driverId("driver-1")
+                .rideId("ride-other")
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.ON_TRIP);
+        assertThat(state.getActiveRideId()).isEqualTo("ride-1");
+        assertThat(publisher.availableDrivers).isEmpty();
+    }
+
+    @Test
+    void cancelRideDoesNotFreeDriverWithoutActiveRide() {
+        stateStore.save(idleState().toBuilder()
+                .status(DriverStatus.REPOSITIONING)
+                .available(false)
+                .activeRideId(null)
+                .build());
+
+        engine.cancelRide(RideCancelledEvent.builder()
+                .driverId("driver-1")
+                .rideId(null)
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.REPOSITIONING);
+        assertThat(publisher.availableDrivers).isEmpty();
+    }
+
+    @Test
+    void cancelRideIgnoredForUnknownDriver() {
+        engine.cancelRide(RideCancelledEvent.builder()
+                .driverId("missing")
+                .rideId("ride-1")
+                .build());
+
+        assertThat(publisher.availableDrivers).isEmpty();
+    }
+
+    @Test
+    void declineRideLeavesDriverUntouched() {
+        stateStore.save(idleState());
+
+        engine.declineRide(DriverRefusedEvent.builder()
+                .driverId("driver-1")
+                .rideId("ride-1")
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.IDLE);
+        assertThat(state.isAvailable()).isTrue();
+        assertThat(publisher.locationUpdates).isEmpty();
+    }
+
+    @Test
+    void startTripIgnoredWhenRideDoesNotMatchActiveRide() {
+        stateStore.save(idleState().toBuilder()
+                .status(DriverStatus.MOVING_TO_PICKUP)
+                .available(false)
+                .activeRideId("ride-1")
+                .build());
+
+        engine.startTrip(StartTripCommand.builder()
+                .driverId("driver-1")
+                .rideId("ride-other")
+                .destinationLatitude(51.53)
+                .destinationLongitude(-0.14)
+                .build());
+
+        DriverGeoState state = stateStore.required("driver-1");
+        assertThat(state.getStatus()).isEqualTo(DriverStatus.MOVING_TO_PICKUP);
+        assertThat(state.getActiveRideId()).isEqualTo("ride-1");
     }
 
     private static DriverGeoState idleState() {

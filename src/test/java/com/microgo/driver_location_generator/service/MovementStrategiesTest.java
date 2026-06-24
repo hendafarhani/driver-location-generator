@@ -126,6 +126,24 @@ class MovementStrategiesTest {
     }
 
     @Test
+    void scenarioStrategyKeepsCruisingAfterReachingDemandBias() {
+        ScenarioMovementStrategy strategy = new ScenarioMovementStrategy(properties, distanceMatrix);
+        GeoPoint demandBias = point(51.5560, -0.2796);
+        DriverGeoState state = state(DriverStatus.CRUISING).toBuilder()
+                .scenario(LondonScenario.CONCERT_RAIN)
+                .currentPosition(demandBias)
+                .plannedStepMeters(100)
+                .build();
+
+        MovementUpdate update = strategy.move(state);
+
+        assertThat(update.getNewState().getCurrentPosition()).isNotEqualTo(demandBias);
+        assertThat(distanceMatrix.distanceMeters(
+                demandBias,
+                update.getNewState().getCurrentPosition())).isGreaterThan(0);
+    }
+
+    @Test
     void strategiesRejectStatesMissingRequiredStatusOrTarget() {
         assertThat(new RepositioningMovementStrategy(properties, distanceMatrix)
                 .supports(state(DriverStatus.REPOSITIONING))).isFalse();

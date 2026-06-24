@@ -1,5 +1,6 @@
 package com.microgo.driver_location_generator.service.strategy.strategyimpl;
 
+import com.microgo.driver_location_generator.businessrule.MovementProgressBusinessRules;
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
@@ -39,20 +40,19 @@ public class PickupMovementStrategy implements DriverMovementStrategy {
     }
 
     private GeoPoint resolvePickupProgressPosition(DriverGeoState state, boolean reachedPickup) {
-        if (reachedPickup) {
-            return state.getPickupPosition();
-        }
-        return distanceMatrix.moveToward(
+        return MovementProgressBusinessRules.resolveTargetProgressPosition(
                 state.getCurrentPosition(),
                 state.getPickupPosition(),
-                state.getPlannedStepMeters());
+                state.getPlannedStepMeters(),
+                reachedPickup,
+                distanceMatrix);
     }
 
     private boolean hasReachedPickup(DriverGeoState state) {
-        return calculateRemainingDistanceToPickup(state) <= properties.getArrivalThresholdMeters();
-    }
-
-    private double calculateRemainingDistanceToPickup(DriverGeoState state) {
-        return distanceMatrix.distanceMeters(state.getCurrentPosition(), state.getPickupPosition());
+        return MovementProgressBusinessRules.hasReachedTarget(
+                state.getCurrentPosition(),
+                state.getPickupPosition(),
+                distanceMatrix,
+                properties.getArrivalThresholdMeters());
     }
 }

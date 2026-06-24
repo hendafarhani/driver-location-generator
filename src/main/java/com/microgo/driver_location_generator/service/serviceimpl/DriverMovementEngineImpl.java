@@ -1,5 +1,6 @@
 package com.microgo.driver_location_generator.service.serviceimpl;
 
+import com.microgo.driver_location_generator.businessrule.DriverSeedBusinessRules;
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
@@ -32,10 +33,6 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
 
     private static final double CENTRAL_LONDON_LATITUDE = 51.5074d;
     private static final double CENTRAL_LONDON_LONGITUDE = -0.1278d;
-    private static final double LATITUDE_KILOMETERS_PER_DEGREE = 55.0d;
-    private static final double LONGITUDE_KILOMETERS_PER_DEGREE = 35.0d;
-    private static final int POSITION_BUCKET_COUNT = 1_000;
-    private static final int LONGITUDE_HASH_DIVISOR = 31;
 
     private final DriverLocationGeneratorProperties properties;
     private final RedisGeoDriverStateStore stateStore;
@@ -185,14 +182,11 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
 
     private GeoPoint initialPosition(String driverId, LondonScenario scenario) {
         DriverLocationGeneratorProperties.ScenarioConfig config = scenarioConfig(scenario);
-        if (config == null) {
-            return defaultCentralLondonPosition();
-        }
-
-        long hash = Math.abs((long) driverId.hashCode());
-        double latOffset = getLatOffset(hash, config);
-        double lonOffset = getLonOffset(hash, config);
-        return point(getLatitude(config, latOffset), getLongitude(config, lonOffset));
+        return DriverSeedBusinessRules.initialPosition(
+                driverId,
+                config,
+                CENTRAL_LONDON_LATITUDE,
+                CENTRAL_LONDON_LONGITUDE);
     }
 
     private DriverLocationGeneratorProperties.ScenarioConfig scenarioConfig(LondonScenario scenario) {
@@ -204,31 +198,6 @@ public class DriverMovementEngineImpl implements DriverMovementEngine {
         return properties.getScenarios().get(scenarioKey);
     }
 
-    private GeoPoint defaultCentralLondonPosition() {
-        return point(CENTRAL_LONDON_LATITUDE, CENTRAL_LONDON_LONGITUDE);
-    }
-
-    private static double getLatOffset(long hash, DriverLocationGeneratorProperties.ScenarioConfig config) {
-        return centeredBucket(hash) * config.getSpreadKm() / LATITUDE_KILOMETERS_PER_DEGREE;
-    }
-
-    private static double getLonOffset(long hash, DriverLocationGeneratorProperties.ScenarioConfig config) {
-        return centeredBucket(hash / LONGITUDE_HASH_DIVISOR)
-                * config.getSpreadKm()
-                / LONGITUDE_KILOMETERS_PER_DEGREE;
-    }
-
-    private static double centeredBucket(long hash) {
-        return (hash % POSITION_BUCKET_COUNT) / (double) POSITION_BUCKET_COUNT - 0.5d;
-    }
-
-    private static double getLongitude(DriverLocationGeneratorProperties.ScenarioConfig config, double lonOffset) {
-        return config.getCenterLongitude() + lonOffset;
-    }
-
-    private static double getLatitude(DriverLocationGeneratorProperties.ScenarioConfig config, double latOffset) {
-        return config.getCenterLatitude() + latOffset;
-    }
 
     private static GeoPoint point(double latitude, double longitude) {
         return DriverMovementEngineMapper.toGeoPoint(latitude, longitude);

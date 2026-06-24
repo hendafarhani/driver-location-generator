@@ -1,5 +1,6 @@
 package com.microgo.driver_location_generator.service.strategy.strategyimpl;
 
+import com.microgo.driver_location_generator.businessrule.MovementProgressBusinessRules;
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
@@ -39,20 +40,19 @@ public class TripMovementStrategy implements DriverMovementStrategy {
     }
 
     private GeoPoint resolveTripProgressPosition(DriverGeoState state, boolean reachedDropoff) {
-        if (reachedDropoff) {
-            return state.getDropoffPosition();
-        }
-        return distanceMatrix.moveToward(
+        return MovementProgressBusinessRules.resolveTargetProgressPosition(
                 state.getCurrentPosition(),
                 state.getDropoffPosition(),
-                state.getPlannedStepMeters());
+                state.getPlannedStepMeters(),
+                reachedDropoff,
+                distanceMatrix);
     }
 
     private boolean hasReachedDropoff(DriverGeoState state) {
-        return calculateRemainingDistanceToDropoff(state) <= properties.getArrivalThresholdMeters();
-    }
-
-    private double calculateRemainingDistanceToDropoff(DriverGeoState state) {
-        return distanceMatrix.distanceMeters(state.getCurrentPosition(), state.getDropoffPosition());
+        return MovementProgressBusinessRules.hasReachedTarget(
+                state.getCurrentPosition(),
+                state.getDropoffPosition(),
+                distanceMatrix,
+                properties.getArrivalThresholdMeters());
     }
 }

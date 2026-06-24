@@ -1,5 +1,6 @@
 package com.microgo.driver_location_generator.service.strategy.strategyimpl;
 
+import com.microgo.driver_location_generator.businessrule.MovementProgressBusinessRules;
 import com.microgo.driver_location_generator.config.DriverLocationGeneratorProperties;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
@@ -48,15 +49,22 @@ public class ScenarioMovementStrategy implements DriverMovementStrategy {
     private GeoPoint calculateScenarioBiasedPosition(
             DriverGeoState state,
             DriverLocationGeneratorProperties.ScenarioConfig scenarioConfig) {
+        GeoPoint demandBiasTarget = MovementProgressBusinessRules.buildScenarioDemandBiasTarget(scenarioConfig);
+        if (MovementProgressBusinessRules.hasReachedTarget(
+                state.getCurrentPosition(),
+                demandBiasTarget,
+                distanceMatrix,
+                state.getPlannedStepMeters())) {
+            return distanceMatrix.moveToward(
+                    state.getCurrentPosition(),
+                    MovementProgressBusinessRules.buildCruisingDriftTarget(
+                            state.getCurrentPosition(),
+                            state.getPlannedStepMeters()),
+                    state.getPlannedStepMeters());
+        }
         return distanceMatrix.moveToward(
                 state.getCurrentPosition(),
-                buildScenarioDemandBiasTarget(scenarioConfig),
+                demandBiasTarget,
                 state.getPlannedStepMeters());
-    }
-
-    private GeoPoint buildScenarioDemandBiasTarget(DriverLocationGeneratorProperties.ScenarioConfig scenarioConfig) {
-        return DriverMovementStrategyMapper.toGeoPoint(
-                scenarioConfig.getDemandBiasLatitude(),
-                scenarioConfig.getDemandBiasLongitude());
     }
 }

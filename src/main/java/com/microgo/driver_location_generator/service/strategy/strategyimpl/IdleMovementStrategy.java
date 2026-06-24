@@ -1,5 +1,6 @@
 package com.microgo.driver_location_generator.service.strategy.strategyimpl;
 
+import com.microgo.driver_location_generator.businessrule.MovementProgressBusinessRules;
 import com.microgo.driver_location_generator.domain.DriverGeoState;
 import com.microgo.driver_location_generator.enums.DriverStatus;
 import com.microgo.driver_location_generator.domain.GeoPoint;
@@ -31,21 +32,12 @@ public class IdleMovementStrategy implements DriverMovementStrategy {
     private GeoPoint calculateCruisingPosition(DriverGeoState state) {
         return distanceMatrix.moveToward(
                 state.getCurrentPosition(),
-                buildCruisingDriftTarget(state),
+                MovementProgressBusinessRules.buildCruisingDriftTarget(
+                        state.getCurrentPosition(),
+                        state.getPlannedStepMeters()),
                 state.getPlannedStepMeters());
     }
 
-    private GeoPoint buildCruisingDriftTarget(DriverGeoState state) {
-        GeoPoint currentPosition = state.getCurrentPosition();
-        double latitudeOffset = convertMetersToLatitudeOffset(state.getPlannedStepMeters());
-        return DriverMovementStrategyMapper.toGeoPoint(
-                currentPosition.getLatitude() + latitudeOffset,
-                currentPosition.getLongitude() + (latitudeOffset / 2));
-    }
-
-    private double convertMetersToLatitudeOffset(double stepMeters) {
-        return stepMeters / 111_320.0d;
-    }
 
     private boolean isIdleOrWaitingForPassenger(DriverGeoState state) {
         return state.getStatus() == DriverStatus.IDLE
